@@ -28,10 +28,12 @@ class EpicShell(cmd.Cmd):
         self._os_is_windows = (platform.system() == "Windows")
         self._windows_bash_shell = windows_bash_shell
 
-        for path in plugin_dirs:
+        self.plugin_dirs = plugin_dirs
+
+        for path in self.plugin_dirs:
             sys.path.append(path)
             EpicImporter.add_load_path(path)
-        self.load_plugins(plugin_dirs)
+        #self.load_plugins(plugin_dirs)
     
     def check_permissions(self, filepath):
         if self._os_is_windows:
@@ -101,6 +103,16 @@ class EpicShell(cmd.Cmd):
         except DocoptExit as de:
             print(de)
             return
+        
+    def do_add_load_path(self, args: str):
+        argv = shlex.split(args)
+        for path in argv:
+            if path not in sys.path:
+                sys.path.append(path)
+            EpicImporter.add_load_path(path)
+
+    def do_load(self, args):
+        self.load_plugins(self.plugin_dirs)
 
     def do_exit(self, args):
         """Exit the shell"""
@@ -108,9 +120,12 @@ class EpicShell(cmd.Cmd):
 
     def default(self, line: str):
         try:
-            cmd, *args = shlex.split(line)
+            cmd, *argv = shlex.split(line)
             mod = importlib.import_module(cmd)
-            mod.run(args, True)
+            mod.run(argv, True)
+        except DocoptExit as de:
+            print(de)
+            return
         except:
             print(f"Error: cmd {cmd} not found.")
 

@@ -4,7 +4,7 @@ import sys
 
 sys.path.append("libexec")
 
-EpicImporter.add_load_path("libexec")
+EpicImporter.load_paths.add("libexec")
 mod1 = importlib.import_module("plugin1")
 mod3 = importlib.import_module("plugin1.plugin3")
 print(mod1.__doc__)

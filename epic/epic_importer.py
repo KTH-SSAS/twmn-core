@@ -5,7 +5,6 @@ import sys
 import platform
 import functools
 import subprocess
-from typing import List
 from types import ModuleType
 
 
@@ -18,18 +17,13 @@ from pathlib import Path
 class EpicImporter(Loader, PathEntryFinder):
     bash_libs = list()
     help_tokens = dict()
-    load_paths = list()
+    load_paths = set()
 
-    @staticmethod
-    def epic_importer_factory(path: str):
-        if Path(path).parts[0] in EpicImporter.load_paths:
-            return EpicImporter(path)
+    @classmethod
+    def epic_importer_factory(cls, path: str):
+        if Path(path).parts[0] in cls.load_paths:
+            return cls(path)
         raise ImportError
-    
-    @staticmethod
-    def add_load_path(path: str):
-        if not path in EpicImporter.load_paths:
-            EpicImporter.load_paths.append(path)
 
     @staticmethod
     def _resolve_file_interpreter(path):
@@ -46,13 +40,24 @@ class EpicImporter(Loader, PathEntryFinder):
             return None
 
         return first_line.split("/")[-1].split(" ")[-1].strip()
-    
+
     def __init__(self, path):
         self.path = Path(path)
 
     def find_spec(self, fullname: str, path: str, target=None):
+        """
+        Return the module spec (i.e. import information) for a module, or `None` if the
+        module can't be handled correctly.
+
+        See more at https://docs.python.org/3/reference/import.html#the-meta-path.
+
+        :param name: the fully qualified name of the module, e.g. `a.b.c`.
+        :param path: akin to sys.path but for imports. Will be `None` for top-level
+                     modules and `<parent>.__path__` for subpackages.
+        :param target: an existing module object to be loaded later, only for reloading.
+        """
         unqualified_name = fullname.split(".")[-1]
-        
+
         if path:
             script_path = ".d".join([path, unqualified_name])
         else:
@@ -60,14 +65,14 @@ class EpicImporter(Loader, PathEntryFinder):
 
         if not (interpreter := self._resolve_file_interpreter(script_path)):
             return None
-        
+
         with open(script_path) as f:
             script_contents = f.read()
             docopt_spec = self._get_docopt_string(script_contents, interpreter)
 
             if not docopt_spec:
                 return None
-            
+
         m = ModuleSpec(
             fullname,
             self,
@@ -92,7 +97,7 @@ class EpicImporter(Loader, PathEntryFinder):
         Any import-related module attributes (e.g. __spec__) are automatically set.
         """
         return ModuleType(spec.name, doc=spec.loader_state["docopt"])
-    
+
     def exec_module(self, module: ModuleType) -> None:
         # Extend the module with an attribute to keep check of whether it's being
         # invoked itself or just used to invoke one of its subcommands.
@@ -107,25 +112,25 @@ class EpicImporter(Loader, PathEntryFinder):
         module.run = run
 
     @staticmethod
-    def _run(module, args: List, main: bool = True):
+    def _run(module, args: list, main: bool = True):
         kwargs = docopt(module.__spec__.loader_state["docopt"], args, help=True)
         kwargs = {k.lstrip("-").strip("<>"): v for k, v in kwargs.items()}
 
         interpreter = module.__spec__.loader_state["interpreter"]
-        
+
         if interpreter == "python":
             source_code = Path(module.__file__).read_text()
-            module_name = module.__dict__['__name__']
+            module_name = module.__name__
 
             if main:
-                module.__dict__["__name__"] = "__main__"
+                module.__name__ = "__main__"
             prev_argv = sys.argv
             sys.argv = [module_name] + args
 
             exec(source_code, module.__dict__)
-            
+
             if main:
-                module.__dict__["__name__"] = module_name
+                module.__name__ = module_name
             sys.argv = prev_argv
         elif interpreter == "bash":
             for k, v in kwargs.items():
@@ -139,8 +144,8 @@ class EpicImporter(Loader, PathEntryFinder):
             subprocess.run([shell, module.__file__], env=kwargs)
         else:
             raise ImportError("unsupported interpreter")
-        
-    
+
+
     def _get_docopt_string(self, script_contents: str, interpreter: str):
         '''
         If python, attempt to find the docstring in the typical __doc__
@@ -177,7 +182,7 @@ class EpicImporter(Loader, PathEntryFinder):
 
             if not docopt_spec:
                 return None
-            
+
             docopt_spec = "\n".join(docopt_spec).lstrip()
 
         docopt_spec = Template(docopt_spec, undefined=StrictUndefined).render(

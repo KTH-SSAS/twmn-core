@@ -11,8 +11,6 @@ Arguments:
 Options:
   --aaa    sdfdsf
   --qqq    dfdfdf
-  -d
-
 """
 
 import sys

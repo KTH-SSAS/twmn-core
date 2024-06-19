@@ -10,6 +10,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import List, Dict
 from docopt import docopt, DocoptExit
+import readline
 
 from .epic_importer import EpicImporter
 
@@ -19,10 +20,12 @@ class EpicShell(cmd.Cmd):
     _mods: Dict[str, ModuleType]
     _os_is_windows: bool
     _windows_bash_shell: str
+    use_rawinput = True
 
     def __init__(self, plugin_dirs: List[str], 
                  windows_bash_shell="C:\\Program Files\\Git\\bin\\bash.exe") -> None:
         super().__init__()
+        readline.set_completer_delims(readline.get_completer_delims().replace('-', ''))
 
         self._mods = dict()
         self._os_is_windows = (platform.system() == "Windows")
@@ -95,6 +98,7 @@ class EpicShell(cmd.Cmd):
         command_name = os.path.basename(plugin_file).replace('_', '-').split('.')[0]
         setattr(self.__class__, 'do_' + command_name, lambda self, args: self.execute_plugin(self._mods[plugin_file], args))
         setattr(self.__class__, 'help_' + command_name, lambda self: print(self._mods[plugin_file].__doc__))
+        setattr(self.__class__, 'complete_' + command_name, lambda self, text, line, begidx, endidx: self.complete_plugin(self._mods[plugin_file], text, line, begidx, endidx))
 
     def execute_plugin(self, mod: ModuleType, args):
         argv = shlex.split(args)
@@ -104,6 +108,9 @@ class EpicShell(cmd.Cmd):
             print(de)
             return
         
+    def complete_plugin(self, mod: ModuleType, text, line, begidx, endidx) -> List[str] | None:
+        return mod._completions(text, line, begidx, endidx)
+
     def do_add_load_path(self, args: str):
         argv = shlex.split(args)
         for path in argv:

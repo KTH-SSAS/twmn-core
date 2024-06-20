@@ -74,18 +74,6 @@ class EpicShell(cmd.Cmd):
         
     def load_plugins(self, plugin_dirs):
         for path in plugin_dirs:
-            
-        #     for root, dirs, files in os.walk(path):
-        #         for f in files:
-        #             file_path = os.path.join(root, f)
-        #             if self.check_permissions(file_path):
-        #                 if root[len(path):]:
-        #                     submodule_dirs = root[len(path)+1:].split('\\')
-        #                     submod_names = [mod_name[:-2] if mod_name.endswith('.d') else mod_name for mod_name in submodule_dirs]
-        #                     package_name = f"{'.'.join(submod_names)}.{f}"
-        #                     self.load_plugin(package_name)
-        #         pass
-
             for item in os.listdir(path):
                 item_path = os.path.join(path, item)
                 if os.path.isfile(item_path) and os.access(item_path, os.X_OK):
@@ -95,7 +83,7 @@ class EpicShell(cmd.Cmd):
     def load_plugin(self, plugin_file: str):
         print(f"Loading {plugin_file}...")
         self._mods[plugin_file] = importlib.import_module(plugin_file)
-        command_name = os.path.basename(plugin_file).replace('_', '-').split('.')[0]
+        command_name = os.path.basename(plugin_file).replace('_', '-').split('.')[-1]
         setattr(self.__class__, 'do_' + command_name, lambda self, args: self.execute_plugin(self._mods[plugin_file], args))
         setattr(self.__class__, 'help_' + command_name, lambda self: print(self._mods[plugin_file].__doc__))
         setattr(self.__class__, 'complete_' + command_name, lambda self, text, line, begidx, endidx: self.complete_plugin(self._mods[plugin_file], text, line, begidx, endidx))
@@ -106,6 +94,8 @@ class EpicShell(cmd.Cmd):
             mod.run(argv)
         except DocoptExit as de:
             print(de)
+            return
+        except SystemExit:
             return
         
     def complete_plugin(self, mod: ModuleType, text, line, begidx, endidx) -> List[str] | None:
@@ -119,23 +109,72 @@ class EpicShell(cmd.Cmd):
             EpicImporter.add_load_path(path)
 
     def do_load(self, args):
-        self.load_plugins(self.plugin_dirs)
+        if(args == "--all" or args == "-a"):
+            self.load_plugins(self.plugin_dirs)
+        else:
+            try:
+                arg = '.'.join(shlex.split(args))
+                self.load_plugin(arg)
+            except ModuleNotFoundError:
+                print(f"Error: cmd {arg} not found.")
+            except ValueError:
+                print("Error: Cannot load Empty module name")
 
     def do_exit(self, args):
         """Exit the shell"""
         return True
+    
+    def do_help(self, line):
+        try:
+            cmd, *argv = shlex.split(line)
+            mod = importlib.import_module(cmd)
+            if len(argv) > 0:
+                for i, arg in enumerate(argv):
+                    if arg in mod.__spec__.loader_state["subcommands"]:
+                        submod = importlib.import_module(f'{mod.__name__}.{arg}')
+                        if len(argv[i+1:]) > 0:
+                            self.do_help(argv[i+1:])
+                        else:
+                            print(submod.__doc__)
+            else:
+                print(mod.__doc__)
+        except:
+            super().do_help(line)
 
     def default(self, line: str):
         try:
             cmd, *argv = shlex.split(line)
             mod = importlib.import_module(cmd)
-            mod.run(argv, True)
+            self.execute_plugin(mod, line[len(cmd):])
         except DocoptExit as de:
             print(de)
             return
-        except:
+        except ModuleNotFoundError:
             print(f"Error: cmd {cmd} not found.")
 
+    def completenames(self, text, *ignored):
+        top_level_plugins = list()
+        for path in self.plugin_dirs:
+            for item in os.listdir(path):
+                item_path = os.path.join(path, item)
+                if os.path.isfile(item_path) and os.access(item_path, os.X_OK):
+                    top_level_plugins.append(item)
+
+        return super().completenames(text, ignored) + top_level_plugins
+        
+    def completedefault(self, text, line, begidx, endidx) -> List[str]:
+        try:
+            origline = readline.get_line_buffer()
+            line = origline.lstrip()
+            stripped = len(origline) - len(line)
+            begidx = readline.get_begidx() - stripped
+            endidx = readline.get_endidx() - stripped
+            cmd, *argv = shlex.split(line)
+            mod = importlib.import_module(cmd)
+            return self.complete_plugin(mod, text, line, begidx, endidx)
+        except:
+            return super().completedefault(text, line, begidx, endidx)
+        
     def do_shell(self, line):
         try:
             # Use shlex.split to properly handle quoted strings
@@ -153,6 +192,8 @@ class EpicShell(cmd.Cmd):
             else:
                 # Use subprocess.run to execute other commands
                 subprocess.run(parts, check=True)
+        except ValueError as e:
+            print(f'Error: {e}')
         except FileNotFoundError as e:
             print(f'Error: Command {line} not found')
         except OSError as e:

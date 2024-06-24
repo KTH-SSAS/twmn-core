@@ -7,8 +7,7 @@ import functools
 import subprocess
 from types import ModuleType
 
-
-from docopt import docopt
+import docopt
 from importlib.machinery import ModuleSpec
 from importlib.abc import PathEntryFinder, Loader
 from jinja2 import Template, StrictUndefined
@@ -108,12 +107,37 @@ class EpicImporter(Loader, PathEntryFinder):
         #             # Trying to invoke a subcommand, so don't run the parent
         #             module.leaf = False
         #             return
+
+        module._completions = functools.partial(
+                self._completions, module
+            )
         run = functools.partial(self._run, module)
         module.run = run
 
     @staticmethod
+    def parse_docopt_string(doc):
+        options = docopt.parse_defaults(doc)
+        pattern = docopt.parse_pattern(docopt.formal_usage(docopt.printable_usage(doc)), options)
+        pattern_options = set(pattern.flat(docopt.Option))
+        for ao in pattern.flat(docopt.AnyOptions):
+            doc_options = docopt.parse_defaults(doc)
+            ao.children = list(set(doc_options) - pattern_options)
+        return [a.name for a in pattern.flat()]
+
+    @staticmethod
+    def _completions(module, text, line, begidx, endidx):
+        #print(f'\n Line: {line}\n Text: {text}\n begidx: {begidx}\n endidx: {endidx}\n')
+
+        options = EpicImporter.parse_docopt_string(module.__spec__.loader_state["docopt"])
+        # options = {o.lstrip("-").strip("<>") for o in options}
+        
+        completions = [o for o in options if o.startswith(text)]
+
+        return completions
+
+    @staticmethod
     def _run(module, args: list, main: bool = True):
-        kwargs = docopt(module.__spec__.loader_state["docopt"], args, help=True)
+        kwargs = docopt.docopt(module.__spec__.loader_state["docopt"], args, help=True)
         kwargs = {k.lstrip("-").strip("<>"): v for k, v in kwargs.items()}
 
         interpreter = module.__spec__.loader_state["interpreter"]

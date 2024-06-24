@@ -1,0 +1,23 @@
+#!/usr/bin/env python
+"""
+A description of the plugin.
+
+Usage:
+  plugin4 [options] --this=<that>
+  plugin4 [options] <list>...
+
+Options:
+  --echo    echo argv
+"""
+
+
+from docopt import docopt
+args = docopt(__doc__)
+
+if args['--echo']:
+    print(args)
+
+print(f'that is: {args['--this']}')
+for i in args['<list>']:
+    print(i)
+

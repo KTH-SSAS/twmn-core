@@ -22,7 +22,7 @@ class EpicShell(cmd.Cmd):
     _windows_bash_shell: str
     use_rawinput = True
 
-    def __init__(self, plugin_dirs: List[str], 
+    def __init__(self, plugin_dirs: List[str],
                  windows_bash_shell="C:\\Program Files\\Git\\bin\\bash.exe") -> None:
         super().__init__()
         readline.set_completer_delims(readline.get_completer_delims().replace('-', ''))
@@ -35,9 +35,9 @@ class EpicShell(cmd.Cmd):
 
         for path in self.plugin_dirs:
             sys.path.append(path)
-            EpicImporter.add_load_path(path)
+            EpicImporter.load_paths.add(path)
         #self.load_plugins(plugin_dirs)
-    
+
     def check_permissions(self, filepath):
         if self._os_is_windows:
             permissions = self.get_file_permissions(filepath)
@@ -53,7 +53,7 @@ class EpicShell(cmd.Cmd):
                 return False
         else:
             return os.access(filepath, os.X_OK)
-        
+
     def get_file_permissions(self, filepath):
         try:
             # Run the `stat` command to get file permissions
@@ -62,7 +62,7 @@ class EpicShell(cmd.Cmd):
         except subprocess.CalledProcessError as e:
             print(f"Error: {e}")
             return None
-    
+
     def get_file_owner(self, filepath):
         try:
             # Run the `stat` command to get file own
@@ -71,14 +71,14 @@ class EpicShell(cmd.Cmd):
         except subprocess.CalledProcessError as e:
             print(f"Error: {e}")
             return None
-        
+
     def load_plugins(self, plugin_dirs):
         for path in plugin_dirs:
             for item in os.listdir(path):
                 item_path = os.path.join(path, item)
                 if os.path.isfile(item_path) and os.access(item_path, os.X_OK):
                     self.load_plugin(item)
-        
+
 
     def load_plugin(self, plugin_file: str):
         print(f"Loading {plugin_file}...")
@@ -106,7 +106,7 @@ class EpicShell(cmd.Cmd):
         for path in argv:
             if path not in sys.path:
                 sys.path.append(path)
-            EpicImporter.add_load_path(path)
+            EpicImporter.load_paths.add(path)
 
     def do_load(self, args):
         if(args == "--all" or args == "-a"):
@@ -179,10 +179,10 @@ class EpicShell(cmd.Cmd):
         try:
             # Use shlex.split to properly handle quoted strings
             parts = shlex.split(line)
-            
+
             if not parts:
                 return  # Handle empty input
-            
+
             if parts[0] == "cd":
                 # Join the rest of the parts to get the directory path
                 if len(parts) > 1:

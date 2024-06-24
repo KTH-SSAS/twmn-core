@@ -9,6 +9,7 @@ from typing import List
 from types import ModuleType
 
 import docopt
+import importlib
 from importlib.machinery import ModuleSpec
 from importlib.abc import PathEntryFinder, Loader
 from jinja2 import Template, StrictUndefined
@@ -51,7 +52,6 @@ class EpicImporter(Loader, PathEntryFinder):
 
     def find_spec(self, fullname: str, path: str, target=None):
         unqualified_name = fullname.split(".")[-1]
-        
         if path:
             script_path = ".d".join([path, unqualified_name])
         else:
@@ -67,6 +67,13 @@ class EpicImporter(Loader, PathEntryFinder):
             if not docopt_spec:
                 return None
             
+        subcmds = list()
+        if os.path.isdir(str(script_path)+'.d'):
+            for item in os.listdir(str(script_path)+'.d'):
+                item_path = os.path.join(str(script_path)+'.d', item)
+                if os.path.isfile(item_path) and os.access(item_path, os.X_OK):
+                    subcmds.append(item)
+
         m = ModuleSpec(
             fullname,
             self,
@@ -74,9 +81,9 @@ class EpicImporter(Loader, PathEntryFinder):
             is_package=True,
             loader_state={
                 "interpreter": interpreter,
-                #"comment_char": comment_char,
                 "contents": script_contents,
                 "docopt": docopt_spec,
+                "subcommands": subcmds
             },
         )
         m.has_location = True
@@ -121,18 +128,28 @@ class EpicImporter(Loader, PathEntryFinder):
 
     @staticmethod
     def _completions(module, text, line, begidx, endidx):
-        #print(f'\n Line: {line}\n Text: {text}\n begidx: {begidx}\n endidx: {endidx}\n')
-
+        import shlex
+        for i, arg in enumerate(shlex.split(line)):
+            if arg in module.__spec__.loader_state["subcommands"]:
+                submod = importlib.import_module(f'{module.__name__}.{arg}')
+                return submod._completions(text, line, begidx, endidx)
+            
         options = EpicImporter.parse_docopt_string(module.__spec__.loader_state["docopt"])
         # options = {o.lstrip("-").strip("<>") for o in options}
-        
+        options += module.__spec__.loader_state["subcommands"]
         completions = [o for o in options if o.startswith(text)]
 
         return completions
 
     @staticmethod
-    def _run(module, args: List, main: bool = True):
-        kwargs = docopt.docopt(module.__spec__.loader_state["docopt"], args, help=True)
+    def _run(module, argv: List, main: bool = True):
+        for i, arg in enumerate(argv):
+            if arg in module.__spec__.loader_state["subcommands"]:
+                submod = importlib.import_module(f'{module.__name__}.{arg}')
+                submod.run(argv[i+1:])
+                return
+            
+        kwargs = docopt.docopt(module.__spec__.loader_state["docopt"], argv, help=True)
         kwargs = {k.lstrip("-").strip("<>"): v for k, v in kwargs.items()}
 
         interpreter = module.__spec__.loader_state["interpreter"]
@@ -144,7 +161,7 @@ class EpicImporter(Loader, PathEntryFinder):
             if main:
                 module.__dict__["__name__"] = "__main__"
             prev_argv = sys.argv
-            sys.argv = [module_name] + args
+            sys.argv = [module_name] + argv
 
             exec(source_code, module.__dict__)
             

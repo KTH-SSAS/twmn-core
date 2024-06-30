@@ -98,21 +98,8 @@ class EpicImporter(Loader, PathEntryFinder):
         return ModuleType(spec.name, doc=spec.loader_state["docopt"])
 
     def exec_module(self, module: ModuleType) -> None:
-        # Extend the module with an attribute to keep check of whether it's being
-        # invoked itself or just used to invoke one of its subcommands.
-        # module.leaf = True
-        # if len(args):
-        #     for location in module.__spec__.submodule_search_locations:
-        #         if self._resolve_file_interpreter(Path(location + "/" + args[0])):
-        #             # Trying to invoke a subcommand, so don't run the parent
-        #             module.leaf = False
-        #             return
-
-        module._completions = functools.partial(
-                self._completions, module
-            )
-        run = functools.partial(self._run, module)
-        module.run = run
+        module._completions = functools.partial(self._completions, module)
+        module.run = functools.partial(self._run, module)
 
     @staticmethod
     def parse_docopt_string(doc):
@@ -143,7 +130,14 @@ class EpicImporter(Loader, PathEntryFinder):
         interpreter = module.__spec__.loader_state["interpreter"]
 
         if interpreter == "python":
-            source_code = Path(module.__file__).read_text()
+            # Compile the code before execution for performance and better
+            # stacktraces.
+            compiled_code = compile(
+                source=Path(module.__file__).read_text(),
+                filename=module.__file__,
+                mode='exec',
+            )
+
             module_name = module.__name__
 
             if main:
@@ -151,11 +145,12 @@ class EpicImporter(Loader, PathEntryFinder):
             prev_argv = sys.argv
             sys.argv = [module_name] + args
 
-            exec(source_code, module.__dict__)
+            exec(compiled_code, vars(module) | {'kwargs': kwargs})
 
             if main:
                 module.__name__ = module_name
             sys.argv = prev_argv
+
         elif interpreter == "bash":
             for k, v in kwargs.items():
                 if isinstance(v, bool):

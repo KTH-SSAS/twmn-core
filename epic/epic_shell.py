@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 import cmd
 import shlex
@@ -11,6 +10,7 @@ from types import ModuleType
 from typing import List, Dict
 from docopt import docopt, DocoptExit
 import readline
+from rich.console import Console
 
 from .epic_importer import EpicImporter
 
@@ -21,6 +21,7 @@ class EpicShell(cmd.Cmd):
     _os_is_windows: bool
     _windows_bash_shell: str
     use_rawinput = True
+    console = Console()
 
     def __init__(self, plugin_dirs: List[str],
                  windows_bash_shell="C:\\Program Files\\Git\\bin\\bash.exe") -> None:
@@ -60,7 +61,7 @@ class EpicShell(cmd.Cmd):
             result = subprocess.run(['stat', '-c', '%A', filepath], capture_output=True, text=True, check=True)
             return result.stdout.strip()  # Strip any leading/trailing whitespace
         except subprocess.CalledProcessError as e:
-            print(f"Error: {e}")
+            self.console.print(f"Error: {e}", style="bold red")
             return None
 
     def get_file_owner(self, filepath):
@@ -71,21 +72,27 @@ class EpicShell(cmd.Cmd):
         except subprocess.CalledProcessError as e:
             print(f"Error: {e}")
             return None
-
-    def load_plugins(self, plugin_dirs):
-        for path in plugin_dirs:
+        
+    def get_top_level_plugins(self):
+        top_level_plugins = list()
+        for path in self.plugin_dirs:
             for item in os.listdir(path):
                 item_path = os.path.join(path, item)
                 if os.path.isfile(item_path) and os.access(item_path, os.X_OK):
-                    self.load_plugin(item)
+                    top_level_plugins.append(item)
+        return top_level_plugins
+    
+    def load_top_level_plugins(self, plugin_dirs):
+        for plugin in self.get_top_level_plugins():
+            self.load_plugin(plugin)
 
 
     def load_plugin(self, plugin_file: str):
-        print(f"Loading {plugin_file}...")
+        self.console.print(f"Loading {plugin_file}...", style="dim white")
         self._mods[plugin_file] = importlib.import_module(plugin_file)
-        command_name = os.path.basename(plugin_file).replace('_', '-').split('.')[-1]
+        command_name = os.path.basename(plugin_file).replace('.', '_')
         setattr(self.__class__, 'do_' + command_name, lambda self, args: self.execute_plugin(self._mods[plugin_file], args))
-        setattr(self.__class__, 'help_' + command_name, lambda self: print(self._mods[plugin_file].__doc__))
+        setattr(self.__class__, 'help_' + command_name, lambda self: self.help_plugin(self._mods[plugin_file]))
         setattr(self.__class__, 'complete_' + command_name, lambda self, text, line, begidx, endidx: self.complete_plugin(self._mods[plugin_file], text, line, begidx, endidx))
 
     def execute_plugin(self, mod: ModuleType, args):
@@ -93,7 +100,7 @@ class EpicShell(cmd.Cmd):
         try:
             mod.run(argv)
         except DocoptExit as de:
-            print(de)
+            self.console.print(de, style="bold red")
             return
         except SystemExit:
             return
@@ -132,6 +139,10 @@ class EpicShell(cmd.Cmd):
             index = len(words) - 1
 
         return mod._completions(words, words[index], index, line_cursor)
+    
+    def help_plugin(self, mod: ModuleType):
+        loaded = mod.__name__ in self._mods.keys()
+        self.console.print(mod.__doc__, style="bold green" if loaded else None)
 
     def do_add_load_path(self, args: str):
         argv = shlex.split(args)
@@ -142,36 +153,35 @@ class EpicShell(cmd.Cmd):
 
     def do_load(self, args):
         if(args == "--all" or args == "-a"):
-            self.load_plugins(self.plugin_dirs)
+            self.load_top_level_plugins(self.plugin_dirs)
         else:
             try:
                 arg = '.'.join(shlex.split(args))
                 self.load_plugin(arg)
             except ModuleNotFoundError:
-                print(f"Error: cmd {arg} not found.")
+                self.console.print(f"Error: cmd {arg} not found.", style="bold red")
             except ValueError:
-                print("Error: Cannot load Empty module name")
+                self.console.print("Error: Cannot load Empty module name", style="bold red")
 
     def do_exit(self, args):
         """Exit the shell"""
         return True
     
     def do_help(self, line):
-        try:
+        if line:
             cmd, *argv = shlex.split(line)
-            mod = importlib.import_module(cmd)
+            mod = self._mods.get(cmd, importlib.import_module(cmd))
             if len(argv) > 0:
+                lib_name = cmd
                 for i, arg in enumerate(argv):
-                    if arg in mod.__spec__.loader_state["subcommands"]:
-                        submod = importlib.import_module(f'{mod.__name__}.{arg}')
-                        if len(argv[i+1:]) > 0:
-                            self.do_help(argv[i+1:])
-                        else:
-                            print(submod.__doc__)
-            else:
-                print(mod.__doc__)
-        except:
-            super().do_help(line)
+                    if arg in mod.__spec__.loader_state['subcommands']:
+                        lib_name = f'{mod.__name__}.{arg}'
+                        mod = self._mods.get(lib_name, importlib.import_module(lib_name))
+            self.help_plugin(mod)
+        else:
+            for command in self.get_top_level_plugins():
+                loaded = command in self._mods.keys()
+                self.console.print(f"{'[bold green]' if loaded else ''}{command}{'[/bold green]' if loaded else ''}")
 
     def default(self, line: str):
         try:
@@ -179,18 +189,13 @@ class EpicShell(cmd.Cmd):
             mod = importlib.import_module(cmd)
             self.execute_plugin(mod, line[len(cmd):])
         except DocoptExit as de:
-            print(de)
+            self.console.print(de, style="bold red")
             return
         except ModuleNotFoundError:
-            print(f"Error: cmd {cmd} not found.")
+            self.console.print(f"Error: cmd {cmd} not found.", style="bold red")
 
     def completenames(self, text, *ignored):
-        top_level_plugins = list()
-        for path in self.plugin_dirs:
-            for item in os.listdir(path):
-                item_path = os.path.join(path, item)
-                if os.path.isfile(item_path) and os.access(item_path, os.X_OK):
-                    top_level_plugins.append(item)
+        top_level_plugins = self.get_top_level_plugins()
 
         return super().completenames(text, ignored) + top_level_plugins
         
@@ -207,6 +212,10 @@ class EpicShell(cmd.Cmd):
         except:
             return super().completedefault(text, line, begidx, endidx)
         
+    def emptyline(self):
+        """Override the emptyline method to print help text"""
+        self.do_help(None)
+
     def do_shell(self, line):
         try:
             # Use shlex.split to properly handle quoted strings
@@ -220,15 +229,15 @@ class EpicShell(cmd.Cmd):
                 if len(parts) > 1:
                     os.chdir(" ".join(parts[1:]))
                 else:
-                    print("cd: missing argument")
+                    self.console.print("cd: missing argument", style="bold red")
             else:
                 # Use subprocess.run to execute other commands
                 subprocess.run(parts, check=True)
         except ValueError as e:
-            print(f'Error: {e}')
+            self.console.print(f'Error: {e}', style="bold red")
         except FileNotFoundError as e:
-            print(f'Error: Command {line} not found')
+            self.console.print(f'Error: Command {line} not found', style="bold red")
         except OSError as e:
-            print(f'Error: OSError when attempting to run {line}. \n{e}')
+            self.console.print(f'Error: OSError when attempting to run {line}. \n{e}', style="bold red")
         except subprocess.CalledProcessError as e:
-            print(f'Error: Command {line} failed with return code {e.returncode}')
+            self.console.print(f'Error: Command {line} failed with return code {e.returncode}', style="bold red")

@@ -106,16 +106,6 @@ class EpicImporter(Loader, PathEntryFinder):
         return ModuleType(spec.name, doc=spec.loader_state["docopt"])
 
     def exec_module(self, module: ModuleType) -> None:
-        # Extend the module with an attribute to keep check of whether it's being
-        # invoked itself or just used to invoke one of its subcommands.
-        # module.leaf = True
-        # if len(args):
-        #     for location in module.__spec__.submodule_search_locations:
-        #         if self._resolve_file_interpreter(Path(location + "/" + args[0])):
-        #             # Trying to invoke a subcommand, so don't run the parent
-        #             module.leaf = False
-        #             return
-
         module._completions = functools.partial(
                 self._completions, module
             )
@@ -133,18 +123,21 @@ class EpicImporter(Loader, PathEntryFinder):
         return [a.name for a in pattern.flat()]
 
     @staticmethod
-    def _completions(module, text, line, begidx, endidx):
-        import shlex
-        for i, arg in enumerate(shlex.split(line)):
+    def _completions(module, words, cword, index, cursor):
+        '''
+        words: the current line as a list of words
+        cword: the current word being completed
+        index: the index of cword in the words list
+        cursor: the cursor index in the cword
+        '''
+        for i, arg in enumerate(words):
             if arg in module.__spec__.loader_state["subcommands"]:
                 submod = importlib.import_module(f'{module.__name__}.{arg}')
-                return submod._completions(text, line, begidx, endidx)
-            
-        options = EpicImporter.parse_docopt_string(module.__spec__.loader_state["docopt"])
-        # options = {o.lstrip("-").strip("<>") for o in options}
-        options += module.__spec__.loader_state["subcommands"]
-        completions = [o for o in options if o.startswith(text)]
+                return submod._completions(words, cword, index, cursor)
 
+        options = EpicImporter.parse_docopt_string(module.__spec__.loader_state["docopt"])
+        options += module.__spec__.loader_state["subcommands"]
+        completions = [o for o in options if o.startswith(cword)]
         return completions
 
     @staticmethod

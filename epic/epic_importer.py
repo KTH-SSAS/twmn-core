@@ -21,8 +21,9 @@ class EpicImporter(Loader, PathEntryFinder):
 
     @classmethod
     def epic_importer_factory(cls, path: str):
-        if Path(path).parts[0] in cls.load_paths:
-            return cls(path)
+        for load_path in cls.load_paths:
+            if Path(path).is_relative_to(load_path):
+                return cls(path)
         raise ImportError
 
     @staticmethod

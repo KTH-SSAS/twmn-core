@@ -107,7 +107,7 @@ class EpicImporter(Loader, PathEntryFinder):
         return ModuleType(spec.name, doc=spec.loader_state["docopt"])
 
     def exec_module(self, module: ModuleType) -> None:
-        module._completions = functools.partial(self._completions, module)
+        module._completions = functools.partial(EpicImporter._completions, module)
         module.run = functools.partial(self._run, module)
 
     @staticmethod

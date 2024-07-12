@@ -72,7 +72,7 @@ class EpicImporter(Loader, PathEntryFinder):
 
             if not docopt_spec:
                 return None
-            
+
         subcmds = list()
         if os.path.isdir(str(script_path)+'.d'):
             for item in os.listdir(str(script_path)+'.d'):
@@ -109,6 +109,31 @@ class EpicImporter(Loader, PathEntryFinder):
         module._completions = functools.partial(self._completions, module)
         module.run = functools.partial(self._run, module)
 
+
+    def iter_modules(self, prefix=""):
+        """
+        Yield module names discovered under the path the importer manages.
+
+        Looking at the source code for pkg_util.iter_modules(), available at:
+
+        https://github.com/python/cpython/blob/3.11/Lib/pkgutil.py#L228
+
+        it seems that pkgutils.iter_modules() expects the iter_modules() method
+        of a finder to accept only a prefix and that the finder is instantiated
+        with a path under which to look for modules. I.e. the expectation is
+        that the finder is used via the sys.path_hooks mechanisms and not via
+        sys.meta_path. I.e. pkgutils.iter_modules seems to work only with
+        ancestors of PathEntryFinder.
+
+        :param prefix: a string to output on the front of every module name on
+        output. This is passed directly from the argument with the same name in
+        pkgutils.iter_modules.
+        """
+        for item in self.path.iterdir():
+            if self._resolve_file_interpreter(item):
+                yield prefix + item.stem, False
+
+
     @staticmethod
     def parse_docopt_string(doc):
         options = docopt.parse_defaults(doc)
@@ -144,7 +169,7 @@ class EpicImporter(Loader, PathEntryFinder):
                 submod = importlib.import_module(f'{module.__name__}.{arg}')
                 submod.run(argv[i+1:])
                 return
-            
+
         kwargs = docopt.docopt(module.__spec__.loader_state["docopt"], argv, help=True)
         kwargs = {k.lstrip("-").strip("<>"): v for k, v in kwargs.items()}
 

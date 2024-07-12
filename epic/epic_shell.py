@@ -125,7 +125,7 @@ class EpicShell(cmd.Cmd):
             if wp[0] <= endidx <= wp[1]:
                 index = i
 
-        # If no index was found, this means the cursor is at he end of the current line.
+        # If no index was found, this means the cursor is at the end of the current line.
         # Append an empty string to word list and set index accordingly.
         if index is None:
             words.append('')

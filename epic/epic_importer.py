@@ -118,7 +118,7 @@ class EpicImporter(Loader, PathEntryFinder):
         for ao in pattern.flat(docopt.AnyOptions):
             doc_options = docopt.parse_defaults(doc)
             ao.children = list(set(doc_options) - pattern_options)
-        return [a.name for a in pattern.flat()]
+        return [a.name for a in pattern.flat() if not a.name.startswith('<')]
 
     @staticmethod
     def _completions(module, words, cword, index, cursor):

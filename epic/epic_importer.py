@@ -128,10 +128,9 @@ class EpicImporter(Loader, PathEntryFinder):
         index: the index of cword in the words list
         cursor: the cursor index in the cword
         '''
-        for i, arg in enumerate(words):
-            if arg in module.__spec__.loader_state["subcommands"]:
-                submod = importlib.import_module(f'{module.__name__}.{arg}')
-                return submod._completions(words, cword, index, cursor)
+        if words and words[0] in module.__spec__.loader_state["subcommands"]:
+            submod = importlib.import_module(f'{module.__name__}.{words[0]}')
+            return submod._completions(words, cword, index, cursor)
 
         options = EpicImporter.parse_docopt_string(module.__spec__.loader_state["docopt"])
         options += module.__spec__.loader_state["subcommands"]

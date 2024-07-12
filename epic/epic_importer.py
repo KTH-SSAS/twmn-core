@@ -132,9 +132,8 @@ class EpicImporter(Loader, PathEntryFinder):
             submod = importlib.import_module(f'{module.__name__}.{words[0]}')
             return submod._completions(words, cword, index, cursor)
 
-        options = EpicImporter.parse_docopt_string(module.__spec__.loader_state["docopt"])
-        options += module.__spec__.loader_state["subcommands"]
-        completions = [o for o in options if o.startswith(cword)]
+        completions = EpicImporter.parse_docopt_string(module.__spec__.loader_state["docopt"])
+        completions += module.__spec__.loader_state["subcommands"]
         return completions
 
     @staticmethod

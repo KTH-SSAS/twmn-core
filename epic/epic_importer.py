@@ -8,6 +8,7 @@ import subprocess
 from types import ModuleType
 
 import docopt
+import importlib
 from importlib.machinery import ModuleSpec
 from importlib.abc import PathEntryFinder, Loader
 from jinja2 import Template, StrictUndefined
@@ -71,6 +72,13 @@ class EpicImporter(Loader, PathEntryFinder):
 
             if not docopt_spec:
                 return None
+            
+        subcmds = list()
+        if os.path.isdir(str(script_path)+'.d'):
+            for item in os.listdir(str(script_path)+'.d'):
+                item_path = os.path.join(str(script_path)+'.d', item)
+                if os.path.isfile(item_path) and os.access(item_path, os.X_OK):
+                    subcmds.append(item)
 
         m = ModuleSpec(
             fullname,
@@ -79,9 +87,9 @@ class EpicImporter(Loader, PathEntryFinder):
             is_package=True,
             loader_state={
                 "interpreter": interpreter,
-                #"comment_char": comment_char,
                 "contents": script_contents,
                 "docopt": docopt_spec,
+                "subcommands": subcmds
             },
         )
         m.has_location = True
@@ -112,19 +120,32 @@ class EpicImporter(Loader, PathEntryFinder):
         return [a.name for a in pattern.flat()]
 
     @staticmethod
-    def _completions(module, text, line, begidx, endidx):
-        #print(f'\n Line: {line}\n Text: {text}\n begidx: {begidx}\n endidx: {endidx}\n')
+    def _completions(module, words, cword, index, cursor):
+        '''
+        words: the current line as a list of words
+        cword: the current word being completed
+        index: the index of cword in the words list
+        cursor: the cursor index in the cword
+        '''
+        for i, arg in enumerate(words):
+            if arg in module.__spec__.loader_state["subcommands"]:
+                submod = importlib.import_module(f'{module.__name__}.{arg}')
+                return submod._completions(words, cword, index, cursor)
 
         options = EpicImporter.parse_docopt_string(module.__spec__.loader_state["docopt"])
-        # options = {o.lstrip("-").strip("<>") for o in options}
-        
-        completions = [o for o in options if o.startswith(text)]
-
+        options += module.__spec__.loader_state["subcommands"]
+        completions = [o for o in options if o.startswith(cword)]
         return completions
 
     @staticmethod
-    def _run(module, args: list, main: bool = True):
-        kwargs = docopt.docopt(module.__spec__.loader_state["docopt"], args, help=True)
+    def _run(module, argv: list, main: bool = True):
+        for i, arg in enumerate(argv):
+            if arg in module.__spec__.loader_state["subcommands"]:
+                submod = importlib.import_module(f'{module.__name__}.{arg}')
+                submod.run(argv[i+1:])
+                return
+            
+        kwargs = docopt.docopt(module.__spec__.loader_state["docopt"], argv, help=True)
         kwargs = {k.lstrip("-").strip("<>"): v for k, v in kwargs.items()}
 
         interpreter = module.__spec__.loader_state["interpreter"]
@@ -143,7 +164,7 @@ class EpicImporter(Loader, PathEntryFinder):
             if main:
                 module.__name__ = "__main__"
             prev_argv = sys.argv
-            sys.argv = [module_name] + args
+            sys.argv = [module_name] + argv
 
             exec(compiled_code, vars(module) | {'kwargs': kwargs})
 

@@ -99,7 +99,39 @@ class EpicShell(cmd.Cmd):
             return
         
     def complete_plugin(self, mod: ModuleType, text, line, begidx, endidx) -> List[str] | None:
-        return mod._completions(text, line, begidx, endidx)
+        # Split the line into words using shlex
+        words = shlex.split(line)
+    
+        # Calculate the positions of each word in the original line
+        word_positions = []
+        current_position = 0
+        
+        for word in words:
+            # Find the start position of the word in the original line
+            start_idx = line.find(word, current_position)
+            end_idx = start_idx + len(word)
+            
+            # Append the (start_idx, end_idx) tuple to word_positions
+            word_positions.append((start_idx, end_idx))
+            
+            # Update current_position to be after this word
+            current_position = end_idx
+        
+        line_cursor = endidx - begidx
+
+        # Find the index in the words list of the current word
+        index = None
+        for i, wp in enumerate(word_positions):
+            if wp[0] <= endidx <= wp[1]:
+                index = i
+
+        # If no index was found, this means the cursor is at the end of the current line.
+        # Append an empty string to word list and set index accordingly.
+        if index is None:
+            words.append('')
+            index = len(words) - 1
+
+        return mod._completions(words, words[index], index, line_cursor)
 
     def do_add_load_path(self, args: str):
         argv = shlex.split(args)

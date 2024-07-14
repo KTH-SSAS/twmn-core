@@ -138,12 +138,11 @@ class EpicImporter(Loader, PathEntryFinder):
 
     @staticmethod
     def _run(module, argv: list, main: bool = True):
-        for i, arg in enumerate(argv):
-            if arg in module.__spec__.loader_state["subcommands"]:
-                submod = importlib.import_module(f'{module.__name__}.{arg}')
-                submod.run(argv[i+1:])
-                return
-            
+        if argv and argv[0] in module.__spec__.loader_state["subcommands"]:
+            submod = importlib.import_module(f'{module.__name__}.{argv[0]}')
+            submod.run(argv[1:])
+            return
+
         kwargs = docopt.docopt(module.__spec__.loader_state["docopt"], argv, help=True)
         kwargs = {k.lstrip("-").strip("<>"): v for k, v in kwargs.items()}
 

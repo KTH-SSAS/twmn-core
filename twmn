@@ -16,79 +16,15 @@ from epic.epic_importer import EpicImporter
 sys.path.append("libexec")
 EpicImporter.load_paths.add('libexec')
 
-# TwmnImporter.bash_libs = ["bash_lib.sh"]
-
-# TODO these are just demo vars
 EpicImporter.help_tokens = {
     "go": "twmn",
     "custom_help_token": "my help token",
 }
 
-# aliases = ['ls', 'pwd']
-
-
-# TODO I added this to be able to load the `run` module, see in the final
-# version if it is needed and if I can/should place it in importer.py
-# sys.path.append("src")
-
 
 def runner():
     """Try to import the specified module (the script, in our case) and run it."""
-    # sys.argv.pop(0)
-    #
-    # complete = False
-    # if len(sys.argv) > 0 and sys.argv[0] == '--complete':
-    #     complete = True
-    #     index = sys.argv.index("--complete")
-    #     sys.argv.remove("--complete")
-    #     completion_args = (
-    #         sys.argv.pop(0),
-    #         sys.argv.pop(0),
-    #         sys.argv.pop(0),
-    #         sys.argv[0].split(),
-    #     )
-    #     sys.argv = completion_args[-1]
-    #
-    # # elif sys.argv and sys.argv[1] in aliases:
-    #     # sys.argv.insert(1, "run")
-    #
-    # if not sys.argv and complete:
-    #     print("top completion")
-    #     return
-    #
-    # print(sys.argv)
-    # if complete:
-    #     try:
-    #         completions = importlib.import_module(sys.argv[0])._completions(*completion_args)
-    #     except ModuleNotFoundError:
-    #         print("top completion")
-    #         completions = []
-    #     print(' '.join(completions), end='')
-    #     return
-    #
-    # try:
-    #     parent_mod = importlib.import_module(sys.argv[1])
-    #
-    # except ModuleNotFoundError as e:
-    #     print('error')
-    #     return
-    #     print(e)
-    #     # print(
-    #         # f"'{modname.replace('.', ' ')}' command does not exist, is not executable,",
-    #         # "or is missing a 'Usage:' line.",
-    #     # )
-    #     return 1
-    #
-    # if complete:
-    #     return parent_mod._completions(*completion_args)
-    #
-    # parent_mod.run(sys.argv[2:])
-
     sys.argv.pop(0)
-
-    # if not sys.argv:
-        # print_twmn_usage()
-        # return
 
     complete = False
 

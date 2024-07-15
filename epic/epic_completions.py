@@ -4,7 +4,7 @@ import os
 import shlex
 import string
 import sys
-from types import ModuleType
+from pkgutil import iter_modules
 
 from .epic_importer import EpicImporter
 
@@ -18,21 +18,15 @@ class EpicCompletion():
             sys.path.append(path)
             EpicImporter.load_paths.add(path)
 
-    
-    def get_top_level_cmds(self):
-        top_level_cmds = list()
-        for path in self.command_dirs:
-            for item in os.listdir(path):
-                item_path = os.path.join(path, item)
-                if os.path.isfile(item_path) and os.access(item_path, os.X_OK):
-                    top_level_cmds.append(item)
 
-        return top_level_cmds
+    def get_top_level_cmds(self):
+        return [mod.name for mod in iter_modules(self.command_dirs)]
+
 
     def complete(self, args: list[str]):
         line = args[1]
         epic_completer, *argv = shlex.split(line)
-        
+
         if line.endswith(tuple(string.whitespace)):
             argv.append('')
 

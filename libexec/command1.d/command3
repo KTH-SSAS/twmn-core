@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-A description of the plugin.
+A description of the command.
 
 Usage:
-  plugin3 [options]
+  command3 [options]
 
 Options:
   --lol     hehe

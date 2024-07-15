@@ -12,5 +12,5 @@ class TwmnCore(EpicRunner):
 
 
 if __name__ == "__main__":
-    twmn = TwmnCore(plugin_dirs=["libexec"])
+    twmn = TwmnCore(command_dirs=["libexec"])
     twmn.run(sys.argv[1:])

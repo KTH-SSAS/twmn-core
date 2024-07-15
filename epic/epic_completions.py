@@ -8,20 +8,20 @@ from types import ModuleType
 
 from .epic_importer import EpicImporter
 
-plugin_dirs=['libexec']
+command_dirs=['libexec']
 
 class EpicCompletion():
-    def __init__(self, plugin_dirs: list[str]) -> None:
-        self.plugin_dirs = plugin_dirs
+    def __init__(self, command_dirs: list[str]) -> None:
+        self.command_dirs = command_dirs
 
-        for path in self.plugin_dirs:
+        for path in self.command_dirs:
             sys.path.append(path)
             EpicImporter.load_paths.add(path)
 
     
     def get_top_level_cmds(self):
         top_level_cmds = list()
-        for path in self.plugin_dirs:
+        for path in self.command_dirs:
             for item in os.listdir(path):
                 item_path = os.path.join(path, item)
                 if os.path.isfile(item_path) and os.access(item_path, os.X_OK):

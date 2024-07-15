@@ -3,7 +3,7 @@
 A description of the command.
 
 Usage:
-  command1 [options] (command1 | command2 ARG)
+  command1 [options] (action1 | action2 ARG)
 
 Arguments:
   ARG  an arg

@@ -23,37 +23,22 @@ class EpicCompletion():
         return [mod.name for mod in iter_modules(self.command_dirs)]
 
 
-    def complete(self, args: list[str]):
-        line = args[1]
-        epic_completer, *argv = shlex.split(line)
-
+    def complete(self, line: str):
         if line.endswith(tuple(string.whitespace)):
-            argv.append('')
+            line += "''"
 
-        if len(argv) > 0:
-            cmd, *argv = argv
-            try:
-                mod = importlib.import_module(cmd)
-                lib_name = cmd
-                for i, arg in enumerate(argv):
-                    if arg in mod.__spec__.loader_state['subcommands']:
-                        lib_name = f'{mod.__name__}.{arg}'
-                        mod = importlib.import_module(lib_name)
+        _, cmd, *argv = shlex.split(line)
 
-                if len(argv) > 0:
-                    matching_options = mod._completions(argv, argv[-1], len(argv) -1, len(argv[-1])-1)
-                else:
-                    matching_options = mod._completions(argv, '', 0, 0)
+        try:
+            mod = importlib.import_module(cmd)
 
-                # Print each matching option on a new line
-                for option in matching_options:
-                    print(option)
-            except ModuleNotFoundError:
-                for cmd in self.get_top_level_cmds():
-                    print(cmd)
-            except ValueError:
-                for cmd in self.get_top_level_cmds():
-                    print(cmd)
-        else:
-            for cmd in self.get_top_level_cmds():
-                print(cmd)
+            if argv:
+                matching_options = mod._completions(argv, argv[-1], len(argv) -1, len(argv[-1])-1)
+            else:
+                matching_options = mod._completions(argv, '', 0, 0)
+
+            print(*matching_options, sep='\n')
+
+            return
+        except (ModuleNotFoundError, ValueError):
+            print(*self.get_top_level_cmds(), sep='\n')

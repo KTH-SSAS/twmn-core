@@ -1,5 +1,5 @@
 # Completion function
-_my_command_completion() {
+_twmn_completion() {
     # Get the entire command line being completed
     local command_line="${COMP_WORDS[*]}"
     
@@ -8,5 +8,5 @@ _my_command_completion() {
     COMPREPLY=($("${TWMN_HOME}/twmn_completion.py" "$command_line"))
 }
 
-# Register the completion function for the command 'my_command'
-complete -F _my_command_completion twmn.py
+# Register the completion function for the command 'twmn'
+complete -F _twmn_completion twmn.py

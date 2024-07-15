@@ -21,8 +21,9 @@ class EpicImporter(Loader, PathEntryFinder):
 
     @classmethod
     def epic_importer_factory(cls, path: str):
-        if Path(path).parts[0] in cls.load_paths:
-            return cls(path)
+        for load_path in cls.load_paths:
+            if Path(path).is_relative_to(load_path):
+                return cls(path)
         raise ImportError
 
     @staticmethod
@@ -106,7 +107,7 @@ class EpicImporter(Loader, PathEntryFinder):
         return ModuleType(spec.name, doc=spec.loader_state["docopt"])
 
     def exec_module(self, module: ModuleType) -> None:
-        module._completions = functools.partial(self._completions, module)
+        module._completions = functools.partial(EpicImporter._completions, module)
         module.run = functools.partial(self._run, module)
 
 
@@ -142,7 +143,7 @@ class EpicImporter(Loader, PathEntryFinder):
         for ao in pattern.flat(docopt.AnyOptions):
             doc_options = docopt.parse_defaults(doc)
             ao.children = list(set(doc_options) - pattern_options)
-        return [a.name for a in pattern.flat()]
+        return [a.name for a in pattern.flat() if not a.name.startswith('<')]
 
     @staticmethod
     def _completions(module, words, cword, index, cursor):
@@ -152,14 +153,12 @@ class EpicImporter(Loader, PathEntryFinder):
         index: the index of cword in the words list
         cursor: the cursor index in the cword
         '''
-        for i, arg in enumerate(words):
-            if arg in module.__spec__.loader_state["subcommands"]:
-                submod = importlib.import_module(f'{module.__name__}.{arg}')
-                return submod._completions(words, cword, index, cursor)
+        if words and words[0] in module.__spec__.loader_state["subcommands"]:
+            submod = importlib.import_module(f'{module.__name__}.{words[0]}')
+            return submod._completions(words, cword, index, cursor)
 
-        options = EpicImporter.parse_docopt_string(module.__spec__.loader_state["docopt"])
-        options += module.__spec__.loader_state["subcommands"]
-        completions = [o for o in options if o.startswith(cword)]
+        completions = EpicImporter.parse_docopt_string(module.__spec__.loader_state["docopt"])
+        completions += module.__spec__.loader_state["subcommands"]
         return completions
 
     @staticmethod

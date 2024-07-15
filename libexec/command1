@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-A description of the plugin.
+A description of the command.
 
 Usage:
-  plugin1 [options] (command1 | command2 ARG)
+  command1 [options] (action1 | action2 ARG)
 
 Arguments:
   ARG  an arg

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Usage:
-#   plugin2 [options] ARG
+#   command2 [options] ARG
 #
 # Options:
 #   --ll  dsfdsf

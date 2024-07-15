@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import sys
 
 from epic.epic_runner import EpicRunner

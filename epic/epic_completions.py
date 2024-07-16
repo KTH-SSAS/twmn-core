@@ -24,18 +24,26 @@ class EpicCompletion():
 
 
     def complete(self, line: str):
-        if line.endswith(tuple(string.whitespace)):
-            line += "''"
-
-        _, cmd, *argv = shlex.split(line)
-
         try:
+            # Strip off EpicRunner program name and seperate
+            # into cmd and argv
+            _, cmd, *argv = shlex.split(line)
+        
+            if line.endswith(tuple(string.whitespace)):
+                # If the full line ended in whitespace, the user
+                # Is trying to complete a new word.
+                # Appdend the empty string to argv that shlex stripped off.
+                argv.append('')
+
             mod = importlib.import_module(cmd)
 
             if argv:
-                matching_options = mod._completions(argv, argv[-1], len(argv) -1, len(argv[-1])-1)
+                # EpicImporter mod._completion expects the full line, including
+                # the current cmd, like sys.argv
+                words = [cmd] + argv
+                matching_options = mod._completions(words, words[-1], len(words) -1, len(words[-1])-1)
             else:
-                matching_options = mod._completions(argv, '', 0, 0)
+                matching_options = mod._completions(cmd, '', 0, 0)
 
             print(*matching_options, sep='\n')
 

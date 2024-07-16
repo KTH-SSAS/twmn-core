@@ -95,7 +95,8 @@ class EpicShell(cmd.Cmd):
         except DocoptExit as de:
             print(de)
             return
-        except SystemExit:
+        except Exception as e:
+            print(f'Error when executing {mod.__spec__.name}: {type(e).__name__}: {e}')
             return
         
     def complete_plugin(self, mod: ModuleType, text, line, begidx, endidx) -> List[str] | None:
@@ -170,7 +171,7 @@ class EpicShell(cmd.Cmd):
                             print(submod.__doc__)
             else:
                 print(mod.__doc__)
-        except:
+        except ModuleNotFoundError:
             super().do_help(line)
 
     def default(self, line: str):

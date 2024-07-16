@@ -20,9 +20,9 @@ def main(args):
     if args['aaa']: print("Ran with AAA option")
     if args['qqq']: print("Ran with QQQ option")
 
-    if args['command1']:
+    if args['action1']:
         print("Executing command1")
-    elif args['command2']:
+    elif args['action2']:
         print(f"Executing command2 with {args['ARG']} ARG")
 
 if __name__ == '__main__':

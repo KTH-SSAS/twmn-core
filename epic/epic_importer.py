@@ -153,9 +153,9 @@ class EpicImporter(Loader, PathEntryFinder):
         index: the index of cword in the words list
         cursor: the cursor index in the cword
         '''
-        if words and words[0] in module.__spec__.loader_state["subcommands"]:
-            submod = importlib.import_module(f'{module.__name__}.{words[0]}')
-            return submod._completions(words, cword, index, cursor)
+        if words and words[1] in module.__spec__.loader_state["subcommands"]:
+            submod = importlib.import_module(f'{module.__name__}.{words[1]}')
+            return submod._completions(words[1:], cword, index, cursor)
 
         completions = EpicImporter.parse_docopt_string(module.__spec__.loader_state["docopt"])
         completions += module.__spec__.loader_state["subcommands"]
@@ -163,11 +163,10 @@ class EpicImporter(Loader, PathEntryFinder):
 
     @staticmethod
     def _run(module, argv: list, main: bool = True):
-        for i, arg in enumerate(argv):
-            if arg in module.__spec__.loader_state["subcommands"]:
-                submod = importlib.import_module(f'{module.__name__}.{arg}')
-                submod.run(argv[i+1:])
-                return
+        if argv and argv[0] in module.__spec__.loader_state["subcommands"]:
+            submod = importlib.import_module(f'{module.__name__}.{argv[0]}')
+            submod.run(argv[1:])
+            return
 
         kwargs = docopt.docopt(module.__spec__.loader_state["docopt"], argv, help=True)
         kwargs = {k.lstrip("-").strip("<>"): v for k, v in kwargs.items()}

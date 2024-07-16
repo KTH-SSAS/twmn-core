@@ -170,7 +170,7 @@ class EpicShell(cmd.Cmd):
                             print(submod.__doc__)
             else:
                 print(mod.__doc__)
-        except:
+        except ModuleNotFoundError:
             super().do_help(line)
 
     def default(self, line: str):

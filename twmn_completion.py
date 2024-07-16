@@ -10,5 +10,5 @@ class TwmnCompletion(EpicCompletion):
     pass
 
 if __name__ == "__main__":
-    twmn = TwmnCompletion(plugin_dirs=["libexec"])
-    twmn.complete(sys.argv)
+    twmn = TwmnCompletion(command_dirs=["libexec"])
+    twmn.complete(sys.argv[1])

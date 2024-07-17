@@ -10,5 +10,5 @@ on:  # yamllint disable-line rule:truthy
 
 jobs:
   lint:
-    uses: KTH-SSAS/twmn-ci/.github/workflows/lint.yml@master
+    uses: KTH-SSAS/twmn-ci/.github/workflows/reusable-lint.yml@master
     secrets: inherit

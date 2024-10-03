@@ -91,33 +91,33 @@ class EpicShell(cmd.Cmd):
     def execute_plugin(self, mod: ModuleType, args):
         argv = shlex.split(args)
         try:
-            mod.run(argv)
+            mod.run(argv, name='__main__')
         except DocoptExit as de:
             print(de)
             return
         except Exception as e:
             print(f'Error when executing {mod.__spec__.name}: {type(e).__name__}: {e}')
             return
-        
+
     def complete_plugin(self, mod: ModuleType, text, line, begidx, endidx) -> List[str] | None:
         # Split the line into words using shlex
         words = shlex.split(line)
-    
+
         # Calculate the positions of each word in the original line
         word_positions = []
         current_position = 0
-        
+
         for word in words:
             # Find the start position of the word in the original line
             start_idx = line.find(word, current_position)
             end_idx = start_idx + len(word)
-            
+
             # Append the (start_idx, end_idx) tuple to word_positions
             word_positions.append((start_idx, end_idx))
-            
+
             # Update current_position to be after this word
             current_position = end_idx
-        
+
         line_cursor = endidx - begidx
 
         # Find the index in the words list of the current word
@@ -156,7 +156,7 @@ class EpicShell(cmd.Cmd):
     def do_exit(self, args):
         """Exit the shell"""
         return True
-    
+
     def do_help(self, line):
         try:
             cmd, *argv = shlex.split(line)
@@ -194,7 +194,7 @@ class EpicShell(cmd.Cmd):
                     top_level_plugins.append(item)
 
         return super().completenames(text, ignored) + top_level_plugins
-        
+
     def completedefault(self, text, line, begidx, endidx) -> List[str]:
         try:
             origline = readline.get_line_buffer()
@@ -207,7 +207,7 @@ class EpicShell(cmd.Cmd):
             return self.complete_plugin(mod, text, line, begidx, endidx)
         except:
             return super().completedefault(text, line, begidx, endidx)
-        
+
     def do_shell(self, line):
         try:
             # Use shlex.split to properly handle quoted strings

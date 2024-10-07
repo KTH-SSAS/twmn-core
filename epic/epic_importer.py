@@ -6,6 +6,7 @@ import platform
 import functools
 import subprocess
 from types import ModuleType
+from typing import Any
 
 import docopt
 import importlib
@@ -13,6 +14,13 @@ from importlib.machinery import ModuleSpec
 from importlib.abc import PathEntryFinder, Loader
 from jinja2 import Template, StrictUndefined
 from pathlib import Path
+
+from .dotdict import DotDict
+
+# class EpicList(list):
+    # def add(self, item: Any)-> None:
+        # super().add(item)
+        # sys.path.append(item)
 
 class EpicImporter(Loader, PathEntryFinder):
     bash_libs = list()
@@ -162,7 +170,7 @@ class EpicImporter(Loader, PathEntryFinder):
         return completions
 
     @staticmethod
-    def _run(module, argv: list, main: bool = True):
+    def _run(module, argv: list, *, name: bool = True):
         if argv and argv[0] in module.__spec__.loader_state["subcommands"]:
             submod = importlib.import_module(f'{module.__name__}.{argv[0]}')
             submod.run(argv[1:])
@@ -170,10 +178,12 @@ class EpicImporter(Loader, PathEntryFinder):
 
         kwargs = docopt.docopt(module.__spec__.loader_state["docopt"], argv, help=True)
         kwargs = {k.lstrip("-").strip("<>"): v for k, v in kwargs.items()}
+        kwargs = {k.replace('-', '_'): v for k, v in kwargs.items()}
+        kwargs = DotDict(kwargs)
 
         interpreter = module.__spec__.loader_state["interpreter"]
 
-        if interpreter == "python":
+        if re.match('python', interpreter):
             # Compile the code before execution for performance and better
             # stacktraces.
             compiled_code = compile(
@@ -184,14 +194,18 @@ class EpicImporter(Loader, PathEntryFinder):
 
             module_name = module.__name__
 
-            if main:
-                module.__name__ = "__main__"
+            if name:
+                module.__name__ = name
             prev_argv = sys.argv
             sys.argv = [module_name] + argv
 
-            exec(compiled_code, vars(module) | {'kwargs': kwargs})
+            epic_vars = {
+               "__epic_script__": Path(module.__file__).name,
+            }
 
-            if main:
+            exec(compiled_code, vars(module) | {'kwargs': kwargs} | epic_vars)
+
+            if name:
                 module.__name__ = module_name
             sys.argv = prev_argv
 
@@ -217,7 +231,7 @@ class EpicImporter(Loader, PathEntryFinder):
         Otherwise, parse the script line by line reading the header
         comment section.
         '''
-        if interpreter == "python":
+        if re.match('python', interpreter):
             match = re.search(r'"""(.*?)"""', script_contents, re.DOTALL)
             if match:
                 docopt_spec = match.group(1)
